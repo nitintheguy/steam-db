@@ -1,26 +1,42 @@
 import { NextResponse } from 'next/server'
-import { syncMultipleGames } from '@/lib/sync'
+import { syncMultipleGames, syncPlayerCounts } from '@/lib/sync'
+import { getSteamAppList } from '@/lib/steam'
 
-// A hand-picked list of popular Steam app IDs to start with
-const SEED_APP_IDS = [
-  570,    // Dota 2
-  730,    // CS2
-  440,    // TF2
-  1172470, // Apex Legends
-  1245620, // Elden Ring
-  1091500, // Cyberpunk 2077
-  292030, // The Witcher 3
-  271590, // GTA V
-  381210, // Dead by Daylight
-  578080, // PUBG
-]
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const offset = parseInt(searchParams.get('offset') ?? '0')
+  const limit = parseInt(searchParams.get('limit') ?? '50')
+  const playersOnly = searchParams.get('players') === 'true'
 
-export async function GET() {
   try {
-    const results = await syncMultipleGames(SEED_APP_IDS)
+    if (playersOnly) {
+      const results = await syncPlayerCounts()
+      return NextResponse.json({
+        success: true,
+        mode: 'players',
+        synced: results.length,
+        players: results,
+      })
+    }
+
+    const allApps = await getSteamAppList()
+    const validApps = allApps
+      .filter(app => app.name && app.name.trim() !== '')
+      .slice(offset, offset + limit)
+
+    const appIds = validApps.map(app => app.appid)
+    const results = await syncMultipleGames(appIds)
+
+    await syncPlayerCounts()
+
     return NextResponse.json({
       success: true,
+      mode: 'full',
+      total: allApps.length,
+      offset,
+      limit,
       synced: results.length,
+      nextOffset: offset + limit,
       games: results.map(g => ({ id: g.id, name: g.name }))
     })
   } catch (err) {

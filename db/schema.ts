@@ -41,3 +41,10 @@ export const gameTags = pgTable('game_tags', {
 }, (t) => ({
   pk: primaryKey({ columns: [t.gameId, t.tagId] }),
 }))
+
+export const playerHistory = pgTable('player_history', {
+  id: serial('id').primaryKey(),
+  gameId: integer('game_id').notNull().references(() => games.id),
+  playersNow: integer('players_now').notNull(),
+  recordedAt: timestamp('recorded_at').defaultNow(),
+})

@@ -1,7 +1,7 @@
 import { db } from '@/db'
-import { games, priceHistory, tags, gameTags } from '@/db/schema'
+import { games, priceHistory, tags, gameTags, playerHistory } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { getSteamAppDetails, sleep } from './steam'
+import { getSteamAppDetails, sleep,getSteamPlayerCount } from './steam'
 
 export async function syncGame(appId: number) {
   const details = await getSteamAppDetails(appId)
@@ -97,6 +97,39 @@ export async function syncMultipleGames(appIds: number[]) {
 
     // Wait 1 second between each request so Steam doesn't block us
     await sleep(1000)
+  }
+
+  return results
+}
+
+
+export async function syncPlayerCounts() {
+  // Get all games from our database
+  const allGames = await db.select({
+    id: games.id,
+    steamAppId: games.steamAppId,
+    name: games.name,
+  }).from(games)
+
+  const results = []
+
+  for (const game of allGames) {
+    try {
+      const count = await getSteamPlayerCount(game.steamAppId)
+
+      if (count !== null) {
+        await db.insert(playerHistory).values({
+          gameId: game.id,
+          playersNow: count,
+        })
+        console.log(`${game.name}: ${count.toLocaleString()} players`)
+        results.push({ name: game.name, playersNow: count })
+      }
+    } catch (err) {
+      console.error(`Failed for ${game.name}:`, err)
+    }
+
+    await sleep(500) // gentler delay, this API is more lenient
   }
 
   return results
