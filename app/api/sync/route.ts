@@ -18,7 +18,8 @@ export async function GET(request: Request) {
 
     // Fetch app IDs from multiple store endpoints
     const appIds = await getDynamicAppIds()
-    const results = await syncMultipleGames(appIds)
+    // Only sync featured games, skip player counts for now
+    const results = await syncMultipleGames(appIds.slice(0, 10))
     await syncPlayerCounts()
 
     return NextResponse.json({

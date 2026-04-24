@@ -96,7 +96,7 @@ export async function syncMultipleGames(appIds: number[]) {
     }
 
     // Wait 1 second between each request so Steam doesn't block us
-    await sleep(1000)
+    await sleep(300)
   }
 
   return results
