@@ -4,9 +4,9 @@ import { getSteamAppList } from '@/lib/steam'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
+  const playersOnly = searchParams.get('players') === 'true'
   const offset = parseInt(searchParams.get('offset') ?? '0')
   const limit = parseInt(searchParams.get('limit') ?? '50')
-  const playersOnly = searchParams.get('players') === 'true'
 
   try {
     if (playersOnly) {
@@ -26,7 +26,6 @@ export async function GET(request: Request) {
 
     const appIds = validApps.map(app => app.appid)
     const results = await syncMultipleGames(appIds)
-
     await syncPlayerCounts()
 
     return NextResponse.json({
