@@ -1,26 +1,28 @@
 export async function getSteamAppList(): Promise<{ appid: number; name: string }[]> {
-  const res = await fetch('https://api.steampowered.com/ISteamApps/GetAppList/v2/', {
-    headers: { 'User-Agent': 'Mozilla/5.0' },
-    next: { revalidate: 3600 },
-  })
+  // Use Steam's API with key first
+  const urls = [
+    `https://api.steampowered.com/ISteamApps/GetAppList/v2/?key=${process.env.STEAM_API_KEY}`,
+    `https://api.steampowered.com/ISteamApps/GetAppList/v2/`,
+  ]
 
-  const text = await res.text()
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: AbortSignal.timeout(10000),
+      })
 
-  if (!res.ok || text.trim().startsWith('<')) {
-    const res2 = await fetch(
-      `https://api.steampowered.com/ISteamApps/GetAppList/v2/?key=${process.env.STEAM_API_KEY}`,
-      { headers: { 'User-Agent': 'Mozilla/5.0' } }
-    )
-    const text2 = await res2.text()
-    if (text2.trim().startsWith('<')) {
-      throw new Error('Steam API blocked on this network.')
+      const text = await res.text()
+      if (text.trim().startsWith('<') || !res.ok) continue
+
+      const data = JSON.parse(text)
+      if (data?.applist?.apps) return data.applist.apps
+    } catch {
+      continue
     }
-    const data2 = JSON.parse(text2)
-    return data2.applist.apps
   }
 
-  const data = JSON.parse(text)
-  return data.applist.apps
+  throw new Error('Could not fetch Steam app list from any source.')
 }
 
 export async function getSteamAppDetails(appId: number) {
