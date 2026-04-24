@@ -1,28 +1,30 @@
 export async function getSteamAppList(): Promise<{ appid: number; name: string }[]> {
-  // Use Steam's API with key first
-  const urls = [
-    `https://api.steampowered.com/ISteamApps/GetAppList/v2/?key=${process.env.STEAM_API_KEY}`,
-    `https://api.steampowered.com/ISteamApps/GetAppList/v2/`,
+  // Steam's storefront search API - not blocked
+  const categories = [
+    'https://store.steampowered.com/api/featuredcategories?cc=us&l=en',
   ]
 
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        signal: AbortSignal.timeout(10000),
-      })
+  // Use the featured games endpoint to get popular app IDs
+  const res = await fetch(
+    'https://store.steampowered.com/api/featured?cc=us&l=en',
+    { headers: { 'User-Agent': 'Mozilla/5.0' } }
+  )
 
-      const text = await res.text()
-      if (text.trim().startsWith('<') || !res.ok) continue
+  const text = await res.text()
+  if (text.trim().startsWith('<')) throw new Error('Store API blocked')
 
-      const data = JSON.parse(text)
-      if (data?.applist?.apps) return data.applist.apps
-    } catch {
-      continue
+  const data = JSON.parse(text)
+
+  const apps: { appid: number; name: string }[] = []
+
+  // Extract from featured windows games
+  for (const item of data?.featured_win ?? []) {
+    if (item.id && item.name) {
+      apps.push({ appid: item.id, name: item.name })
     }
   }
 
-  throw new Error('Could not fetch Steam app list from any source.')
+  return apps
 }
 
 export async function getSteamAppDetails(appId: number) {
